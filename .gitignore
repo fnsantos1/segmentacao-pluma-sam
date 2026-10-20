@@ -1,0 +1,16 @@
+# checkpoints do SAM (2,4 GB / 375 MB) — nunca versionar
+*.pth
+
+# imagens baixadas pelo notebook
+socal.jpg
+yellowstone.jpg
+imagem_usuario.jpg
+
+# saídas geradas pela execução
+saida/
+resultados_sam.zip
+
+# arquivos de apoio da construção do notebook (não fazem parte da entrega)
+fonte/
+__pycache__/
+.ipynb_checkpoints/
