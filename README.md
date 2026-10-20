@@ -4,9 +4,8 @@ Continuação do notebook inicial da atividade: mesma stack (**Ultralytics**), *
 reescritos. A imagem do notebook inicial (`MyDrive/pluma.jpg`) não está mais disponível, então a
 análise usa uma imagem pública equivalente, com *prompts* e máscara de referência já calibrados.
 
-> Substitua `SEU_USUARIO/SEU_REPO` depois de subir o repositório.
 
-[![Abrir no Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SEU_USUARIO/SEU_REPO/blob/main/Segmentacao_Pluma_SAM.ipynb)
+[![Abrir no Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/fnsantos1/segmentacao-pluma-sam/blob/main/Segmentacao_Pluma_SAM.ipynb)
 
 ## O que estava quebrado no notebook inicial
 
