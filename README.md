@@ -1,93 +1,61 @@
-# Segmentação de pluma de fumaça com SAM (Segment Anything Model)
+# Segmentação de pluma de fumaça com SAM — versão aprimorada
 
-Notebook da atividade: avaliar a máscara que o SAM produz para uma **pluma de fumaça**, testar
-diferentes *prompts*, melhorar a apresentação da máscara e **justificar** as melhorias com medições.
+Continuação do notebook inicial da atividade. Mesma stack (**Ultralytics**) e mesma imagem
+(`MyDrive/pluma.jpg`); o que muda é **como o SAM é acionado** e **como o resultado é avaliado**.
 
-> Substitua `SEU_USUARIO/SEU_REPO` pelos seus dados depois de subir o repositório.
+> Substitua `SEU_USUARIO/SEU_REPO` depois de subir o repositório.
 
 [![Abrir no Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SEU_USUARIO/SEU_REPO/blob/main/Segmentacao_Pluma_SAM.ipynb)
 
----
+## O que estava quebrado no notebook inicial
 
-## Onde está cada item do enunciado
+| Célula | O que acontecia | Causa |
+|---|---|---|
+| 13 | `FileNotFoundError: 'sam_b.pt'` | `SAM3SemanticPredictor` espera pesos do SAM 3 (download deu 404); `sam_b.pt` não faz *prompt* de texto |
+| 14 | `(no detections)` → nenhuma máscara gerada | o detector `YOLOv8m-smoke-detection` não encontrou a pluma |
+| 12 | "4 cars, 1 truck" | `yolo26n` é COCO — não existe classe "fumaça" |
+| 7 | `copyfile("pluma.jpg", "pluma.png")` | só renomeia: o arquivo continua JPEG |
 
-| Enunciado | Etapa |
-|---|---|
-| A máscara cobre a pluma? | 4.1 — `recall` e `cobertura pluma (%)` |
-| Inclui regiões que não pertencem a ela? | 4.1 — `vazamento ceu / nuvem_haze / edificacao (%)` e `precisão` |
-| Deixa partes da fumaça de fora? | 4.1 — `1 − recall` e mapa de erro (falso negativo em azul) |
-| Caixa delimitadora e pontos positivos/negativos | 2 |
-| Pelo menos três configurações de *prompts* | 2 — três configurações (A, B, C) |
-| Original / máscara binária / máscara sobreposta lado a lado | 3 — uma figura por configuração + grade comparativa |
-| O que dificultou a segmentação | 1 (diagnóstico fotométrico) e 5 |
-| Efeito de iluminação, contraste e semelhança fumaça×nuvem | 1 (Bhattacharyya) e 4.2 (contraste reduzido) |
-| Avaliação no código | 4.1 (tabela + CSV) |
+**Correção:** *prompts* geométricos (caixa e pontos) em vez de detector automático ou *prompt* de
+texto, com `SAM2Predictor` e `set_image()` chamado uma única vez.
+
+## ⚠️ Antes de publicar
+
+O notebook inicial tem uma **chave da API do CDS/Copernicus escrita no código** (célula 4). Chave em
+repositório público é chave vazada: **revogue essa e gere outra** no painel do CDS, e passe a lê-la de
+variável de ambiente (`os.environ["CDSAPI_KEY"]`). Este notebook não contém a chave nem a parte de
+ERA5/netCDF — ela é outra frente do projeto; aqui é só a segmentação da pluma.
 
 ## As três configurações de *prompt*
 
 | | *Prompt* | Hipótese testada |
 |---|---|---|
-| A | só caixa delimitadora | o retângulo basta? Ele contém muito céu junto da pluma. |
-| B | só 3 pontos positivos | sem limite espacial, até onde a região espalha? |
-| C | caixa + 5 positivos + 8 negativos | dizer o que **não** é pluma resolve a ambiguidade? |
+| A | só a caixa | o retângulo basta? Ele contém muito céu junto. |
+| B | só pontos positivos | sem limite espacial, até onde a região espalha por semelhança? |
+| C | caixa + positivos + negativos | dizer o que **não** é pluma resolve a ambiguidade? |
 
-A melhoria central é **C**: como pluma e nuvem/*haze* têm estatística parecida (medido na Etapa 1),
-o distrator está *dentro* da caixa, e o ponto negativo é o único elemento do *prompt* capaz de
-excluí-lo.
+## Etapas
+
+| Etapa | Conteúdo |
+|---|---|
+| 1 | instalação, imagem, **palpite de caixa/pontos calculado na própria imagem** e grade de coordenadas |
+| 2 | os três *prompts* e a predição (`set_image` uma vez, três decodificações) |
+| 3 | original + *prompts* / máscara binária / sobreposição, lado a lado, para cada configuração |
+| 4.1 | métricas sem rótulo: área, componentes, compacidade, invasão de céu/solo, IoU entre configurações e separabilidade dentro×fora |
+| 4.2 | efeito do contraste: mesma cena e mesmo *prompt*, contraste reduzido à metade |
+| 5 | conclusões e o que faria a seguir |
 
 ## Como rodar
 
-1. Abra no Colab (badge acima) e selecione **GPU** em
-   `Ambiente de execução → Alterar o tipo de ambiente de execução`.
-   Sem GPU ele cai para o modelo `vit_b`, mais leve.
-2. `Ambiente de execução → Executar tudo`. A primeira execução baixa o *checkpoint* do SAM
-   (2,4 GB no `vit_h`, 375 MB no `vit_b`).
-3. O que vale ajustar está no dicionário `CFG`, na Etapa 0.
+`Ambiente de execução → Executar tudo`. GPU ajuda mas não é obrigatória (usa `sam2_t.pt` em CPU e
+`sam2_b.pt` em GPU).
 
-### Usar a sua própria imagem
+**Ajuste obrigatório:** confira na Etapa 1 se o palpite caiu na pluma. Se não caiu, corrija `PROMPTS`
+na Etapa 2 — as coordenadas são frações de 0 a 1, lidas direto da grade.
 
-Ponha `CFG["IMAGEM"] = "upload"` (ou um caminho/URL) e **ajuste os *prompts*** no catálogo da
-Etapa 0. As coordenadas são **frações** da largura/altura (`0.0`–`1.0`), então valem para qualquer
-resolução; a Etapa 0 imprime a imagem com uma grade rotulada em pixel **e** em fração para você ler
-as coordenadas.
+## Limitação declarada
 
-## Imagens de teste (domínio público, Wikimedia Commons)
-
-| Chave | Imagem | Por que foi escolhida |
-|---|---|---|
-| `socal` | *Smoke plume from SoCal wildfire, outubro/2007* | Tem os três distratores do enunciado ao mesmo tempo — céu, *haze* parecido com nuvem e edifícios — e uma placa que **oclui** a pluma. |
-| `yellowstone` | *Wildfire in Yellowstone NP produces Pyrocumulus clouds* | Caso extremo de semelhança fumaça×nuvem: o incêndio **gera** nuvens de verdade. |
-
-## Resumo da conclusão
-
-O SAM é agnóstico a classe: ele não tem o conceito "fumaça", apenas devolve a região coerente
-indicada pelo *prompt*. Como a pluma tem **borda difusa**, **baixa saturação** e luminância parecida
-com a de nuvens e do *haze* do horizonte, o *prompt* precisa declarar explicitamente o que **não** é
-pluma — por isso os **pontos negativos** são a melhoria de maior impacto. A Etapa 4.2 mostra ainda
-que a mesma cena, com o mesmo *prompt*, dá outra máscara só por causa de uma mudança de contraste.
-
-## Arquivos
-
-```
-Segmentacao_Pluma_SAM.ipynb   notebook da atividade (é isto que se entrega)
-README.md                     este arquivo
-saida/                        gerada ao rodar: figuras, máscaras PNG e métricas em CSV
-fonte/                        apoio da construção do notebook (fora do versionamento)
-```
-
-Há também uma **versão estendida** no primeiro commit do repositório, com seis configurações de
-*prompt* (incluindo refinamento iterativo via `mask_input` e máscara suave por filtro guiado), o
-*baseline* do `SamAutomaticMaskGenerator`, testes de perturbação da caixa e de ponto positivo na
-nuvem, e um relatório automático em texto. Para recuperá-la:
-
-```bash
-git show ca7efa3:Segmentacao_Pluma_SAM.ipynb > Segmentacao_Pluma_SAM_completo.ipynb
-```
-
-## Limitações declaradas
-
-* A máscara de **referência** da imagem `socal` é um polígono traçado à mão e **aproximado** — na
-  base da pluma não existe fronteira objetiva entre fumaça e *haze*. Os valores de IoU/Dice servem
-  para comparar as configurações **entre si**, não como medida absoluta.
-* Resultados vêm de **uma** imagem por execução. Uma avaliação robusta exigiria N imagens com
-  média ± desvio.
+Sem máscara de referência traçada à mão não há IoU contra a verdade; por isso a avaliação usa
+medidas que não dependem de rótulo (invasão de céu/solo, concordância entre *prompts*, separabilidade
+fotométrica dentro×fora da máscara). Traçar uma referência é o primeiro item do "o que faria a
+seguir".
